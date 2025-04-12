@@ -1,0 +1,845 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Instagram_Comments_Analysis</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/d3@7"></script>
+  <script src="https://cdn.jsdelivr.net/npm/d3-cloud@1.2.5/build/d3.layout.cloud.js"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <style>
+    :root {
+      --insta-pink: #E1306C;
+      --insta-purple: #833AB4;
+      --insta-blue: #405DE6;
+      --insta-gradient: linear-gradient(45deg, var(--insta-pink), var(--insta-purple), var(--insta-blue));
+      --bg-color: #fafafa;
+      --card-bg: #ffffff;
+      --text-dark: #262626;
+      --text-light: #8e8e8e;
+      --border-color: #dbdbdb;
+    }
+
+    body {
+      font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+      background-color: var(--bg-color);
+      margin: 0;
+      padding: 0;
+      color: var(--text-dark);
+    }
+
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+
+    .header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 15px 0;
+      border-bottom: 1px solid var(--border-color);
+      margin-bottom: 20px;
+    }
+
+    .logo {
+      display: flex;
+      align-items: center;
+    }
+
+    .logo img {
+      height: 40px;
+      margin-right: 10px;
+    }
+
+    .logo-text {
+      font-family: 'Billabong', cursive;
+      font-size: 28px;
+      font-weight: 600;
+      background: var(--insta-gradient);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .dashboard {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+      grid-gap: 20px;
+    }
+
+    .card {
+      background-color: var(--card-bg);
+      border-radius: 12px;
+      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+      padding: 20px;
+      margin-bottom: 20px;
+      border: 1px solid var(--border-color);
+    }
+
+    .card-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 15px;
+      padding-bottom: 10px;
+      border-bottom: 1px solid var(--border-color);
+    }
+
+    .card-title {
+      font-size: 18px;
+      font-weight: 600;
+      margin: 0;
+    }
+
+    .card-icon {
+      color: var(--insta-pink);
+      font-size: 20px;
+    }
+
+    .chart-container {
+      position: relative;
+      height: 300px;
+      width: 100%;
+    }
+
+    .wordcloud-container {
+      height: 350px;
+      width: 100%;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 14px;
+    }
+
+    th,
+    td {
+      padding: 12px 15px;
+      text-align: left;
+      border-bottom: 1px solid var(--border-color);
+    }
+
+    th {
+      font-weight: 600;
+      color: var(--text-dark);
+      background-color: rgba(0, 0, 0, 0.02);
+    }
+
+    tr:hover {
+      background-color: rgba(0, 0, 0, 0.02);
+    }
+
+    .sentiment-positive {
+      color: #4CAF50;
+      font-weight: 500;
+    }
+
+    .sentiment-negative {
+      color: #FF6347;
+      font-weight: 500;
+    }
+
+    .sentiment-neutral {
+      color: #FFD700;
+      font-weight: 500;
+    }
+
+    .likes-count {
+      font-weight: 600;
+      color: var(--insta-pink);
+    }
+
+    .emoji {
+      font-size: 16px;
+      vertical-align: middle;
+    }
+
+    .footer {
+      text-align: center;
+      padding: 20px;
+      color: var(--text-light);
+      font-size: 14px;
+      border-top: 1px solid var(--border-color);
+      margin-top: 30px;
+    }
+
+    @media (max-width: 768px) {
+      .dashboard {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    @font-face {
+      font-family: 'Billabong';
+      src: url('https://fonts.cdnfonts.com/css/billabong') format('woff');
+      font-weight: normal;
+      font-style: normal;
+    }
+  </style>
+</head>
+
+<body>
+  <div class="container">
+    <div class="header">
+      <div class="logo">
+        <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/e/e7/Instagram_logo_2016.svg/768px-Instagram_logo_2016.svg.png" alt="Instagram Logo">
+        <div class="logo-text">Comments Analysis</div>
+      </div>
+      <div>
+        <i class="fas fa-heart card-icon"></i>
+      </div>
+    </div>
+
+    <div class="dashboard">
+      <div class="card">
+        <div class="card-header">
+          <h2 class="card-title">Sentiment Distribution</h2>
+          <i class="fas fa-chart-pie card-icon"></i>
+        </div>
+        <div class="chart-container">
+          <canvas id="pieChart"></canvas>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <h2 class="card-title">Engagement by Sentiment</h2>
+          <i class="fas fa-chart-bar card-icon"></i>
+        </div>
+        <div class="chart-container">
+          <canvas id="barChart"></canvas>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <h2 class="card-title">Positive Words</h2>
+          <i class="fas fa-smile card-icon"></i>
+        </div>
+        <div class="wordcloud-container" id="positiveWordCloud"></div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <h2 class="card-title">Negative Words</h2>
+          <i class="fas fa-frown card-icon"></i>
+        </div>
+        <div class="wordcloud-container" id="negativeWordCloud"></div>
+      </div>
+
+      <div class="card" style="grid-column: 1 / -1;">
+        <div class="card-header">
+          <h2 class="card-title">Comments Analysis</h2>
+          <i class="fas fa-comments card-icon"></i>
+        </div>
+        <div style="overflow-x: auto;">
+          <table id="commentsTable">
+            <thead>
+              <tr>
+                <th>Comment</th>
+                <th>Likes</th>
+                <th>Sentiment</th>
+              </tr>
+            </thead>
+            <tbody>
+              <!-- Will be filled by JavaScript -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <div class="footer">
+      <p>Instagram Sentiment Analysis Dashboard • Powered by JavaScript</p>
+    </div>
+  </div>
+
+  <script>
+    // Data
+    const categories = ['Positive', 'Negative', 'Neutral'];
+    const percentages = [46.73, 32.71, 20.56];
+    const likes = [50, 35, 22];
+    const colors = ['#4CAF50', '#FF6347', '#FFD700'];
+    // Word cloud data
+    const positiveWords = "amazing excellent good great best love success wonderful fantastic positive proud cheers happy awesome perfect";
+    const negativeWords = "bad poor terrible worst disappointed failure awful issues broken unacceptable defective garbage faulty low-quality unreliable";
+    // Comments data
+    const commentsData = [{
+        comment: "👏👏👏",
+        likes: 1,
+        sentiment: "Positive"
+      },
+      {
+        comment: "❤️❤️❤️",
+        likes: 1,
+        sentiment: "Positive"
+      },
+      {
+        comment: "😍😍",
+        likes: 1,
+        sentiment: "Positive"
+      },
+      {
+        comment: "🔥🔥👏👏",
+        likes: 1,
+        sentiment: "Positive"
+      },
+      {
+        comment: "Well, it's obvious—LEO pump! 👍 I'm proud of you, my hardworking wife. Cheers! 🔥🔥❤️👏👏👏",
+        likes: 7,
+        sentiment: "Positive"
+      },
+      {
+        comment: "🙌🔥",
+        likes: 1,
+        sentiment: "Positive"
+      },
+      {
+        comment: "👏👏👏",
+        likes: 1,
+        sentiment: "Positive"
+      },
+      {
+        comment: "👏👏👏",
+        likes: 1,
+        sentiment: "Positive"
+      },
+      {
+        comment: "Inverter",
+        likes: 1,
+        sentiment: "Neutral"
+      },
+      {
+        comment: "Friends, I'm confused 😂😂",
+        likes: 2,
+        sentiment: "Neutral"
+      },
+      {
+        comment: "The installation is faulty",
+        likes: 2,
+        sentiment: "Negative"
+      },
+      {
+        comment: "Have a nice day, engineer. You're amazing!",
+        likes: 1,
+        sentiment: "Positive"
+      },
+      {
+        comment: "🙌🔥",
+        likes: 1,
+        sentiment: "Positive"
+      },
+      {
+        comment: "👏👏👏",
+        likes: 1,
+        sentiment: "Positive"
+      },
+      {
+        comment: "Are you referring to the mechanical seal? If the seal leaks, a strainer must definitely be installed at the inlet, and the shape must be correct.",
+        likes: 1,
+        sentiment: "Neutral"
+      },
+      {
+        comment: "Colleague, I had this issue a few times too. I just used a thicker O-ring inside the seal, and the problem was solved.",
+        likes: 3,
+        sentiment: "Positive"
+      },
+      {
+        comment: "Good luck! ✨",
+        likes: 1,
+        sentiment: "Positive"
+      },
+      {
+        comment: "Is there water pressure on it?",
+        likes: 1,
+        sentiment: "Neutral"
+      },
+      {
+        comment: "According to your statement, this fault is suspicious because it has happened three times in a row, and the same issue occurred all three times. I have a few questions: 1. Has the pump inlet size decreased? In this type of pump, the pipe should be 1/2 or 1 size. 2. Have you used this pump in other projects with similar issues? 3. Did you install the inverter panel? Did the inverter setup work properly, and does the pump operate without any noise? 4. Is the motor temperature fine? I believe the fault lies in the project itself because if the same issue occurred three times, the pump is not the problem.",
+        likes: 4,
+        sentiment: "Neutral"
+      },
+      {
+        comment: "Your installation is excellent.",
+        likes: 1,
+        sentiment: "Positive"
+      },
+      {
+        comment: "It has nothing to do with the inlet.",
+        likes: 1,
+        sentiment: "Neutral"
+      },
+      {
+        comment: "The reason for the seal failure is dry operation and an increase in the pump shaft temperature. Check the pump inlet and suction pipe size to make sure there's no issue. These pumps might be defective in this series.",
+        likes: 2,
+        sentiment: "Negative"
+      },
+      {
+        comment: "This pump is selected for multiple units in a multi-story building. Also, the pipe sizing is incorrect. The nominal size of white pipes is one size larger. A 32mm white pipe is actually 3/4 inch.",
+        likes: 1,
+        sentiment: "Neutral"
+      },
+      {
+        comment: "The seal area is small and can't handle the load; the pump needs a larger seal for high pressure.",
+        likes: 1,
+        sentiment: "Negative"
+      },
+      {
+        comment: "Hello to friends and experts. I am a pump repairman and installer from Parand. I wanted to inform the experts that the mechanical seal wears out due to shaft wobble or overheating in situations where the water supply is cut off, causing seal failure. Please like or dislike this comment.",
+        likes: 2,
+        sentiment: "Neutral"
+      },
+      {
+        comment: "Good job! 👏👏",
+        likes: 2,
+        sentiment: "Positive"
+      },
+      {
+        comment: "👏👏👏👏",
+        likes: 2,
+        sentiment: "Positive"
+      },
+      {
+        comment: "😂😂😂😂",
+        likes: 2,
+        sentiment: "Neutral"
+      },
+      {
+        comment: "The installation looks fine, no issues.",
+        likes: 1,
+        sentiment: "Neutral"
+      },
+      {
+        comment: "The problem is not related to the inlet or outlet.",
+        likes: 1,
+        sentiment: "Neutral"
+      },
+      {
+        comment: "The fault lies in the seal or mechanical failure. If the shaft temperature is high, the seal breaks down. Check for proper pipe sizing and ensure no clogging in the inlet. Also, check the inverter setup and ensure the pump operates correctly without any noise.",
+        likes: 2,
+        sentiment: "Negative"
+      },
+      {
+        comment: "Your installation is perfect.",
+        likes: 1,
+        sentiment: "Positive"
+      },
+      {
+        comment: "No issue with the installation; the problem lies elsewhere.",
+        likes: 1,
+        sentiment: "Neutral"
+      },
+      {
+        comment: "The reason for failure could be the water pressure. Check the system thoroughly to ensure everything is working properly.",
+        likes: 2,
+        sentiment: "Neutral"
+      },
+      {
+        comment: "It could be due to the quality of the seal.",
+        likes: 1,
+        sentiment: "Negative"
+      },
+      {
+        comment: "The mechanical seal issue happens if the pump runs dry or overheats. Check the system pressure and consider using a higher-quality mechanical seal.",
+        likes: 1,
+        sentiment: "Negative"
+      },
+      {
+        comment: "Excellent work, engineer.",
+        likes: 1,
+        sentiment: "Positive"
+      },
+      {
+        comment: "LEO pumps have become low-quality in recent years; don't buy them.",
+        likes: 1,
+        sentiment: "Negative"
+      },
+      {
+        comment: "Install a pressure vessel and connect the five-way valve vertically, and the issue will be resolved.",
+        likes: 1,
+        sentiment: "Neutral"
+      },
+      {
+        comment: "Add a second pressure vessel.",
+        likes: 1,
+        sentiment: "Neutral"
+      },
+      {
+        comment: "Only LEO is defective.",
+        likes: 3,
+        sentiment: "Negative"
+      },
+      {
+        comment: "😍😍😍",
+        likes: 1,
+        sentiment: "Positive"
+      },
+      {
+        comment: "👏",
+        likes: 1,
+        sentiment: "Positive"
+      },
+      {
+        comment: "❤️❤️❤️",
+        likes: 1,
+        sentiment: "Positive"
+      },
+      {
+        comment: "Yes, I've had the same experience. I half-closed the output valve on the pump as suggested, and it worked great.",
+        likes: 1,
+        sentiment: "Positive"
+      },
+      {
+        comment: "Hello, you didn't mention how many units?",
+        likes: 1,
+        sentiment: "Neutral"
+      },
+      {
+        comment: "❤️❤️❤️❤️❤️",
+        likes: 1,
+        sentiment: "Positive"
+      },
+      {
+        comment: "👏👏👏",
+        likes: 1,
+        sentiment: "Positive"
+      },
+      {
+        comment: "Based on the pump's power, using 32mm Azin pipes, which are only nominally 1 inch, is not correct. Use 40mm pipes, and also use a drive.",
+        likes: 1,
+        sentiment: "Neutral"
+      },
+      {
+        comment: "Install a drive controller, or if you can afford it, install an inverter drive.",
+        likes: 1,
+        sentiment: "Neutral"
+      },
+      {
+        comment: "😍😍❤️❤️👏👏",
+        likes: 1,
+        sentiment: "Positive"
+      },
+      {
+        comment: "You're doing great.",
+        likes: 1,
+        sentiment: "Positive"
+      },
+      {
+        comment: "LEO.",
+        likes: 1,
+        sentiment: "Neutral"
+      },
+      {
+        comment: "LEO is defective.",
+        likes: 2,
+        sentiment: "Negative"
+      },
+      {
+        comment: "You're doing great.",
+        likes: 1,
+        sentiment: "Positive"
+      },
+      {
+        comment: "Antifreeze will fix the issue.",
+        likes: 2,
+        sentiment: "Neutral"
+      },
+      {
+        comment: "Great job, engineer.",
+        likes: 1,
+        sentiment: "Positive"
+      },
+      {
+        comment: "The pump has an output issue; check if there's a blockage.",
+        likes: 1,
+        sentiment: "Negative"
+      },
+      {
+        comment: "😂😂😂😂",
+        likes: 1,
+        sentiment: "Neutral"
+      },
+      {
+        comment: "It's impossible the problem is from your side, engineer. 👍",
+        likes: 1,
+        sentiment: "Positive"
+      },
+      {
+        comment: "❤️❤️❤️",
+        likes: 1,
+        sentiment: "Positive"
+      },
+      {
+        comment: "You're awesome, engineer.",
+        likes: 1,
+        sentiment: "Positive"
+      },
+      {
+        comment: "Hello, I don't see any faults, except maybe at the installation site, near the junction.",
+        likes: 1,
+        sentiment: "Neutral"
+      },
+      {
+        comment: "Unfortunately, LEO pumps' quality has dropped sharply in the last year or two. Don't buy or use them.",
+        likes: 1,
+        sentiment: "Negative"
+      },
+      {
+        comment: "I suggest you check the pressure before and after the automatic controller to ensure everything is fine.",
+        likes: 1,
+        sentiment: "Neutral"
+      },
+      {
+        comment: "Excellent installation. 👏",
+        likes: 1,
+        sentiment: "Positive"
+      },
+      {
+        comment: "The problem is with the seal, not the installation.",
+        likes: 1,
+        sentiment: "Negative"
+      },
+      {
+        comment: "The LEO pump is garbage, and most of its models have these issues.",
+        likes: 2,
+        sentiment: "Negative"
+      },
+      {
+        comment: "The LEO brand is unreliable.",
+        likes: 1,
+        sentiment: "Negative"
+      },
+      {
+        comment: "Change the pump, LEO is no longer viable. ❌️",
+        likes: 1,
+        sentiment: "Negative"
+      },
+      {
+        comment: "Check the automatic control system.",
+        likes: 1,
+        sentiment: "Neutral"
+      },
+      {
+        comment: "👏👏👏❤️❤️",
+        likes: 2,
+        sentiment: "Positive"
+      },
+      {
+        comment: "The issue is with the LEO pump itself.",
+        likes: 1,
+        sentiment: "Negative"
+      },
+      {
+        comment: "The problem is the water supply, not the pump.",
+        likes: 1,
+        sentiment: "Neutral"
+      },
+      {
+        comment: "25 years, a Pedrollo pump has been running at my house without any seal or bush problems!",
+        likes: 1,
+        sentiment: "Positive"
+      },
+      {
+        comment: "They've even made a 4-horsepower pump single-phase—what a joke from these companies.",
+        likes: 1,
+        sentiment: "Negative"
+      },
+      {
+        comment: "Excellent installation 👏👏👏. The issue is with the mechanical seal or spring.",
+        likes: 1,
+        sentiment: "Negative"
+      },
+      {
+        comment: "LEO is terrible.",
+        likes: 1,
+        sentiment: "Negative"
+      },
+      {
+        comment: "The pump is broken.",
+        likes: 1,
+        sentiment: "Negative"
+      },
+      {
+        comment: "The issue is the pump itself.",
+        likes: 1,
+        sentiment: "Negative"
+      },
+      {
+        comment: "Check the pressure; the issue is likely due to a pressure discrepancy.",
+        likes: 1,
+        sentiment: "Neutral"
+      },
+      {
+        comment: "No one should buy cheap Chinese pumps. Go for quality Italian ones.",
+        likes: 1,
+        sentiment: "Negative"
+      },
+      {
+        comment: "Check the automatic setting; the problem lies there.",
+        likes: 1,
+        sentiment: "Negative"
+      },
+      {
+        comment: "The issue is the low-quality seal used in the pump.",
+        likes: 1,
+        sentiment: "Negative"
+      }
+    ];
+    // Create Pie Chart
+    const pieCtx = document.getElementById('pieChart').getContext('2d');
+    new Chart(pieCtx, {
+      type: 'pie',
+      data: {
+        labels: categories,
+        datasets: [{
+          data: percentages,
+          backgroundColor: colors,
+          borderColor: 'white',
+          borderWidth: 2
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: {
+            position: 'right',
+            labels: {
+              padding: 20,
+              usePointStyle: true,
+              pointStyle: 'circle'
+            }
+          },
+          tooltip: {
+            callbacks: {
+              label: function(context) {
+                return `${context.label}: ${context.raw}%`;
+              }
+            }
+          }
+        },
+        cutout: '60%',
+        borderRadius: 5
+      }
+    });
+    // Create Bar Chart
+    const barCtx = document.getElementById('barChart').getContext('2d');
+    new Chart(barCtx, {
+      type: 'bar',
+      data: {
+        labels: categories,
+        datasets: [{
+          label: 'Likes',
+          data: likes,
+          backgroundColor: [
+            'rgba(76, 175, 80, 0.7)',
+            'rgba(255, 99, 71, 0.7)',
+            'rgba(255, 215, 0, 0.7)'
+          ],
+          borderColor: [
+            'rgba(76, 175, 80, 1)',
+            'rgba(255, 99, 71, 1)',
+            'rgba(255, 215, 0, 1)'
+          ],
+          borderWidth: 1
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        scales: {
+          y: {
+            beginAtZero: true,
+            grid: {
+              color: 'rgba(0, 0, 0, 0.05)'
+            }
+          },
+          x: {
+            grid: {
+              display: false
+            }
+          }
+        },
+        plugins: {
+          legend: {
+            display: false
+          }
+        }
+      }
+    });
+    // Function to create word cloud
+    function createWordCloud(selector, words, colorScheme) {
+      const container = document.querySelector(selector);
+      const width = container.clientWidth;
+      const height = container.clientHeight;
+      // Count word frequencies
+      const wordCounts = {};
+      words.split(' ').forEach(word => {
+        wordCounts[word] = (wordCounts[word] || 0) + 1;
+      });
+      const wordArray = Object.keys(wordCounts).map(word => ({
+        text: word,
+        size: wordCounts[word] * 10 + 10
+      }));
+      // Create SVG
+      const svg = d3.select(selector)
+        .append("svg")
+        .attr("width", width)
+        .attr("height", height);
+      // Create cloud layout
+      const layout = d3.layout.cloud()
+        .size([width, height])
+        .words(wordArray)
+        .padding(5)
+        .rotate(() => ~~(Math.random() * 2) * 90)
+        .font("Segoe UI")
+        .fontSize(d => d.size)
+        .on("end", draw);
+      layout.start();
+
+      function draw(words) {
+        svg.append("g")
+          .attr("transform", `translate(${layout.size()[0]/2},${layout.size()[1]/2})`)
+          .selectAll("text")
+          .data(words)
+          .enter().append("text")
+          .style("font-size", d => `${d.size}px`)
+          .style("font-family", "Segoe UI")
+          .style("fill", (d, i) => colorScheme === 'green' ?
+            d3.interpolateGreens(i / wordArray.length * 0.6 + 0.3) :
+            d3.interpolateReds(i / wordArray.length * 0.6 + 0.3))
+          .attr("text-anchor", "middle")
+          .attr("transform", d => `translate(${d.x},${d.y})rotate(${d.rotate})`)
+          .text(d => d.text);
+      }
+    }
+    // Create word clouds
+    createWordCloud("#positiveWordCloud", positiveWords, 'green');
+    createWordCloud("#negativeWordCloud", negativeWords, 'red');
+    // Populate comments table
+    const tableBody = document.querySelector("#commentsTable tbody");
+    commentsData.forEach(comment => {
+      const row = document.createElement('tr');
+      // Add emoji class to emoji-only comments
+      const isEmojiOnly = /^[\p{Emoji}\s]+$/u.test(comment.comment);
+      const commentCellClass = isEmojiOnly ? "emoji" : "";
+      // Determine sentiment class
+      let sentimentClass = "";
+      if (comment.sentiment === "Positive") sentimentClass = "sentiment-positive";
+      else if (comment.sentiment === "Negative") sentimentClass = "sentiment-negative";
+      else sentimentClass = "sentiment-neutral";
+      row.innerHTML = `
+                <td class="${commentCellClass}">${comment.comment}</td>
+                <td class="likes-count">${comment.likes}</td>
+                <td class="${sentimentClass}">${comment.sentiment}</td>
+            `;
+      tableBody.appendChild(row);
+    });
+  </script>
+</body>
+
+</html>
